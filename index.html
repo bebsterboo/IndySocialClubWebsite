@@ -267,6 +267,7 @@
       border-radius: 10px;
       padding: 16px 20px;
       transition: transform 0.15s, box-shadow 0.15s;
+      scroll-margin-top: 100px; /* space when scrolling so item isn't behind sticky nav */
     }
     .cal-list-item:hover { transform: translateX(4px); box-shadow: 0 6px 18px rgba(42,31,26,0.06); }
     .cal-list-item.highlight { background: #fff6ef; border-left-width: 6px; }
@@ -491,9 +492,9 @@
       <div class="footer-top">
         <a href="mailto:theindysocialclub@gmail.com">theindysocialclub@gmail.com</a>
       </div>
-  <div class="footer-bottom">
-  <div>© 2026 The Indy Social Club. All rights reserved.</div>
-</div>
+      <div class="footer-bottom">
+        <div>© 2026 The Indy Social Club. All rights reserved.</div>
+      </div>
     </div>
   </footer>
 
@@ -525,7 +526,7 @@
         link: "https://luma.com/bxoz6npu",
         linkText: "More Info"
       },
-            {
+      {
         title: "Asian Fest 2026",
         date: "2026-05-09",
         dateLabel: "Free - Open to Public",
@@ -541,7 +542,7 @@
         link: "https://luma.com/pmd39r06",
         linkText: "More Info"
       },
-            {
+      {
         title: "Eastside Anime Club",
         date: "2026-05-06",
         dateLabel: "Free",
@@ -549,7 +550,7 @@
         link: "https://luma.com/cydymv94",
         linkText: "More Info"
       },
-            {
+      {
         title: "Eastside Anime Club",
         date: "2026-05-20",
         dateLabel: "Free",
@@ -557,7 +558,7 @@
         link: "https://luma.com/5b2i6jfv",
         linkText: "More Info"
       },
-                        {
+      {
         title: "DnD Kickoff Event",
         date: "2026-05-10",
         dateLabel: "Free - Buy Your Own Drink",
@@ -565,7 +566,7 @@
         link: "https://luma.com/bk5kdsvo",
         linkText: "More Info"
       },
-                        {
+      {
         title: "Busting Daves!",
         date: "2026-05-25",
         dateLabel: "Free - Buy Your Own Dinner",
@@ -573,7 +574,7 @@
         link: "https://luma.com/nj21aa67",
         linkText: "RSVP"
       },
-                              {
+      {
         title: "Blood on the Clocktower (Game)",
         date: "2026-05-17",
         dateLabel: "Free - Buy Your Own Drink",
@@ -669,20 +670,40 @@
       const titleEl = document.getElementById('cal-list-title');
       titleEl.textContent = `Events in ${MONTH_NAMES[viewMonth]}`;
 
+      // All events happening in the viewed month
       const monthEvents = EVENTS.filter(e => {
         const d = parseDate(e.date);
         return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
       });
 
+      // Nothing at all this month
       if (monthEvents.length === 0) {
         listEl.innerHTML = `<div class="cal-empty">No events scheduled this month yet. Check back soon!</div>`;
         return;
       }
 
-      listEl.innerHTML = monthEvents.map(e => {
-        const isSelected = (selectedDateIso === e.date) ? 'highlight' : '';
+      // Today (start of day) — anything from today onward is "upcoming"
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Show upcoming events by default; if user clicks a past date,
+      // also include that date's event(s).
+      const displayEvents = monthEvents.filter(e => {
+        const isUpcoming = parseDate(e.date) >= today;
+        const isSelectedPast = e.date === selectedDateIso;
+        return isUpcoming || isSelectedPast;
+      });
+
+      // All events this month are in the past and nothing has been clicked
+      if (displayEvents.length === 0) {
+        listEl.innerHTML = `<div class="cal-empty">No upcoming events this month. Click a past date on the calendar to see what happened.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = displayEvents.map(e => {
+        const isHighlighted = (selectedDateIso === e.date) ? 'highlight' : '';
         return `
-          <div class="cal-list-item ${isSelected}">
+          <div class="cal-list-item ${isHighlighted}" data-event-date="${e.date}">
             <div class="cal-list-date">${e.dateLabel}</div>
             <div class="cal-list-title-inner">${e.title}</div>
             <div class="cal-list-when">${e.timeLabel}</div>
@@ -695,6 +716,19 @@
     function selectDate(iso) {
       selectedDateIso = (selectedDateIso === iso) ? null : iso;
       renderCalendar();
+
+      // After the list re-renders, smoothly scroll to the clicked event.
+      // (Skip if the click was a toggle-off.)
+      if (selectedDateIso) {
+        requestAnimationFrame(() => {
+          const target = document.querySelector(
+            `.cal-list-item[data-event-date="${selectedDateIso}"]`
+          );
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        });
+      }
     }
 
     document.getElementById('cal-prev').addEventListener('click', () => {
